@@ -12,38 +12,41 @@ impl State {
         Self { i }
     }
 
+    // sync
+    pub fn inc(&mut self) -> i32 {
+        self.i += 1;
+        self.i
+    }
+
+    // async
     pub fn add(&mut self, v: i32) {
         self.i += v;
     }
-
-    pub fn inc(&mut self) {
-        self.i += 1;
-    }
 }
 
-// auto genereated
+// auto generated
 #[derive(Debug)]
 pub struct Cro {
-    pub state: Mutex<State>,
+    pub state: Resource<State>,
 }
 
 impl Cro {
     pub fn new(i: i32) -> Self {
         Self {
-            state: Mutex::new(State::new(i)),
-        }
-    }
-    pub fn inc(&self) -> Message<State> {
-        Message {
-            o: &self.state,
-            f: &move |state| state.inc(),
+            state: Resource::new(State::new(i)),
         }
     }
 
+    // codegen for sync
+    pub fn inc(&self) -> i32 {
+        self.state.sync(&State::inc)
+    }
+
+    // codegen for async (message)
     pub fn add(&self, v: i32) -> Message<State> {
         Message {
             o: &self.state,
-            f: &move |state| state.add(v),
+            f: Box::new(move |state| state.add(v)),
         }
     }
 }
@@ -51,7 +54,7 @@ impl Cro {
 fn main() {
     let o = Cro::new(0);
 
-    o.inc().sync();
+    o.inc();
 
     println!("o {:?}", o);
 }
