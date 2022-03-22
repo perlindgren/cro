@@ -30,32 +30,3 @@ impl<'a, T> Runnable for Message<'a, T> {
         self.o.sync(&self.f)
     }
 }
-
-#[test]
-fn test_message() {
-    let o1 = Mutex::new(0i32);
-    let m1 = Message {
-        o: &o1,
-        f: &|i: &mut i32| *i += 1,
-    };
-
-    let o2 = Mutex::new(0i64);
-    let m2 = Message {
-        o: &o2,
-        f: &|i: &mut i64| *i += 10,
-    };
-
-    m1.sync();
-    m2.sync();
-
-    let mut v: Vec<Box<dyn Runnable>> = vec![];
-    v.push(Box::new(m1));
-    v.push(Box::new(m2));
-
-    for m in &v {
-        m.sync();
-    }
-
-    println!("o1 {:?}", o1);
-    println!("o2 {:?}", o2);
-}
