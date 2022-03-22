@@ -65,19 +65,21 @@ impl Cro_O {
 }
 
 // user code
-#[derive(Debug)]
-pub struct O2 {
+
+pub struct O2<'a, O> {
     pub i: i32,
+    pub o_inc: (&'a O, fn(&'a O) -> i32),
 }
 
-impl O2 {
-    pub fn new(i: i32) -> Self {
-        Self { i }
+impl<'a, O> O2<'a, O> {
+    pub fn new(i: i32, o: &'a O, f: fn(&'a O) -> i32) -> Self {
+        Self { i, o_inc: (o, f) }
     }
 
     // sync
     pub fn inc(&mut self) -> i32 {
         println!("o2 inc");
+        self.o_inc.1(self.o_inc.0);
         self.i += 1;
         self.i
     }
@@ -96,15 +98,14 @@ impl O2 {
 }
 
 // auto generated
-#[derive(Debug)]
-pub struct Cro_O2 {
-    pub state: Resource<O2>,
+pub struct Cro_O2<'a, O> {
+    pub state: Resource<O2<'a, O>>,
 }
 
-impl Cro_O2 {
-    pub fn new(i: i32) -> Self {
+impl<'a, O> Cro_O2<'a, O> {
+    pub fn new(i: i32, o: &'a O, f: fn(&'a O) -> i32) -> Self {
         Self {
-            state: Resource::new(O2::new(i)),
+            state: Resource::new(O2::new(i, o, f)),
         }
     }
 
@@ -119,7 +120,7 @@ impl Cro_O2 {
     }
 
     // codegen for async (message)
-    pub fn add(&self, v: i32) -> Message<O2> {
+    pub fn add(&'a self, v: i32) -> Message<O2<O>> {
         // should we automatically enqueue the message?
         Message {
             o: &self.state,
@@ -130,20 +131,21 @@ impl Cro_O2 {
 
 fn main() {
     let o = Cro_O::new(0);
-    let o2 = Cro_O2::new(0);
+    let o2 = Cro_O2::new(0, &o, Cro_O::inc);
 
-    println!("{}", o.inc());
-    println!("{}", o.inc2());
-    println!("{}", o2.inc2());
+    println!("{}", o2.inc());
+    // println!("{}", o.inc());
+    // println!("{}", o.inc2());
+    // println!("{}", o2.inc2());
 
-    let mut v: Vec<Box<dyn Runnable>> = vec![];
-    v.push(Box::new(o.add(1)));
-    v.push(Box::new(o.add(2)));
-    v.push(Box::new(o2.add(20)));
+    // let mut v: Vec<Box<dyn Runnable>> = vec![];
+    // v.push(Box::new(o.add(1)));
+    // v.push(Box::new(o.add(2)));
+    // v.push(Box::new(o2.add(20)));
 
-    for m in v {
-        m.sync();
-    }
+    // for m in v {
+    //     m.sync();
+    // }
 
     println!("o {:?}", o);
 }
