@@ -28,9 +28,9 @@ impl O {
 
     // async
     pub fn add(&mut self, v: i32) {
-        let v = self.o2.inc();
+        let d = self.o2.dec();
         println!("o add");
-        self.i += v;
+        self.i += v + d;
     }
 }
 
@@ -94,6 +94,13 @@ impl O2 {
         self.inc()
     }
 
+    // codegen for sync
+    pub fn dec(&mut self) -> i32 {
+        println!("o2 dec");
+        self.i -= 1;
+        self.i
+    }
+
     // async
     pub fn add(&mut self, v: i32) {
         println!("o2 add");
@@ -122,6 +129,11 @@ impl Cro_O2 {
     // codegen for sync
     pub fn inc2(&self) -> i32 {
         self.state.sync(&O2::inc2)
+    }
+
+    // codegen for sync
+    pub fn dec(&self) -> i32 {
+        self.state.sync(&O2::dec)
     }
 
     // codegen for async (message)
