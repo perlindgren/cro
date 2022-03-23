@@ -1,3 +1,4 @@
+#![allow(non_camel_case_types)]
 use cro::*;
 
 // user code
@@ -66,14 +67,19 @@ impl Cro_O {
 
 // user code
 
-pub struct O2<'a, O> {
+pub struct O2<'a, O_1, O_2> {
     pub i: i32,
-    pub o_inc: (&'a O, fn(&'a O) -> i32),
+    pub o_inc: (&'a O_1, fn(&'a O_1) -> i32),
+    pub o_add: (&'a O_2, fn(&'a O_2, i32) -> Message<O_2>),
 }
 
-impl<'a, O> O2<'a, O> {
-    pub fn new(i: i32, o: &'a O, f: fn(&'a O) -> i32) -> Self {
-        Self { i, o_inc: (o, f) }
+impl<'a, O_1, O_2> O2<'a, O_1, O_2> {
+    pub fn new(
+        i: i32,
+        o_inc: (&'a O_1, fn(&'a O_1) -> i32),
+        o_add: (&'a O_2, fn(&'a O_2, i32) -> Message<O_2>),
+    ) -> Self {
+        Self { i, o_inc, o_add }
     }
 
     // sync
@@ -98,14 +104,18 @@ impl<'a, O> O2<'a, O> {
 }
 
 // auto generated
-pub struct Cro_O2<'a, O> {
-    pub state: Resource<O2<'a, O>>,
+pub struct Cro_O2<'a, O_1, O_2> {
+    pub state: Resource<O2<'a, O_1, O_2>>,
 }
 
-impl<'a, O> Cro_O2<'a, O> {
-    pub fn new(i: i32, o: &'a O, f: fn(&'a O) -> i32) -> Self {
+impl<'a, O_1, O_2> Cro_O2<'a, O_1, O_2> {
+    pub fn new(
+        i: i32,
+        o_inc: (&'a O_1, fn(&'a O_1) -> i32),
+        o_add: (&'a O_2, fn(&'a O_2, i: i32) -> Message<O_2>),
+    ) -> Self {
         Self {
-            state: Resource::new(O2::new(i, o, f)),
+            state: Resource::new(O2::new(i, o_inc, o_add)),
         }
     }
 
@@ -120,7 +130,7 @@ impl<'a, O> Cro_O2<'a, O> {
     }
 
     // codegen for async (message)
-    pub fn add(&'a self, v: i32) -> Message<O2<O>> {
+    pub fn add(&'a self, v: i32) -> Message<O2<O_1, O_2>> {
         // should we automatically enqueue the message?
         Message {
             o: &self.state,
@@ -131,9 +141,9 @@ impl<'a, O> Cro_O2<'a, O> {
 
 fn main() {
     let o = Cro_O::new(0);
-    let o2 = Cro_O2::new(0, &o, Cro_O::inc);
+    let o2 = Cro_O2::new(0, (&o, Cro_O::inc), (&o, Cro_O::add));
 
-    println!("{}", o2.inc());
+    // println!("{}", o2.inc());
     // println!("{}", o.inc());
     // println!("{}", o.inc2());
     // println!("{}", o2.inc2());
