@@ -2,14 +2,15 @@
 use cro::*;
 
 // user code
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct O {
     pub i: i32,
+    pub o2: &'static Cro_O2,
 }
 
 impl O {
-    pub fn new(i: i32) -> Self {
-        Self { i }
+    pub fn new(i: i32, o2: &'static Cro_O2) -> Self {
+        Self { i, o2 }
     }
 
     // sync
@@ -27,6 +28,7 @@ impl O {
 
     // async
     pub fn add(&mut self, v: i32) {
+        let v = self.o2.inc();
         println!("o add");
         self.i += v;
     }
@@ -39,9 +41,9 @@ pub struct Cro_O {
 }
 
 impl Cro_O {
-    pub fn new(i: i32) -> Self {
+    pub fn new(i: i32, o2: &'static Cro_O2) -> Self {
         Self {
-            state: Resource::new(O::new(i)),
+            state: Resource::new(O::new(i, o2)),
         }
     }
 
@@ -67,25 +69,21 @@ impl Cro_O {
 
 // user code
 
-pub struct O2<'a, O_1, O_2> {
+#[derive(Debug, Copy, Clone)]
+pub struct O2 {
     pub i: i32,
-    pub o_inc: (&'a O_1, fn(&'a O_1) -> i32),
-    pub o_add: (&'a O_2, fn(&'a O_2, i32) -> Message<O_2>),
+    pub o1: &'static Cro_O,
 }
 
-impl<'a, O_1, O_2> O2<'a, O_1, O_2> {
-    pub fn new(
-        i: i32,
-        o_inc: (&'a O_1, fn(&'a O_1) -> i32),
-        o_add: (&'a O_2, fn(&'a O_2, i32) -> Message<O_2>),
-    ) -> Self {
-        Self { i, o_inc, o_add }
+impl O2 {
+    pub fn new(i: i32, o1: &'static Cro_O) -> Self {
+        Self { i, o1 }
     }
 
     // sync
     pub fn inc(&mut self) -> i32 {
         println!("o2 inc");
-        self.o_inc.1(self.o_inc.0);
+        (self.o1).inc();
         self.i += 1;
         self.i
     }
@@ -104,18 +102,15 @@ impl<'a, O_1, O_2> O2<'a, O_1, O_2> {
 }
 
 // auto generated
-pub struct Cro_O2<'a, O_1, O_2> {
-    pub state: Resource<O2<'a, O_1, O_2>>,
+#[derive(Debug)]
+pub struct Cro_O2 {
+    pub state: Resource<O2>,
 }
 
-impl<'a, O_1, O_2> Cro_O2<'a, O_1, O_2> {
-    pub fn new(
-        i: i32,
-        o_inc: (&'a O_1, fn(&'a O_1) -> i32),
-        o_add: (&'a O_2, fn(&'a O_2, i: i32) -> Message<O_2>),
-    ) -> Self {
+impl Cro_O2 {
+    pub fn new(i: i32, o1: &'static Cro_O) -> Self {
         Self {
-            state: Resource::new(O2::new(i, o_inc, o_add)),
+            state: Resource::new(O2::new(i, o1)),
         }
     }
 
@@ -130,7 +125,7 @@ impl<'a, O_1, O_2> Cro_O2<'a, O_1, O_2> {
     }
 
     // codegen for async (message)
-    pub fn add(&'a self, v: i32) -> Message<O2<O_1, O_2>> {
+    pub fn add(&self, v: i32) -> Message<O2> {
         // should we automatically enqueue the message?
         Message {
             o: &self.state,
@@ -139,23 +134,34 @@ impl<'a, O_1, O_2> Cro_O2<'a, O_1, O_2> {
     }
 }
 
+use core::mem::MaybeUninit;
+
 fn main() {
-    let o = Cro_O::new(0);
-    let o2 = Cro_O2::new(0, (&o, Cro_O::inc), (&o, Cro_O::add));
+    // needs some convenience wrapper
+    let mut mu_o1 = Box::new(MaybeUninit::<Cro_O>::uninit());
+    let mut mu_o2 = Box::new(MaybeUninit::<Cro_O2>::uninit());
 
-    // println!("{}", o2.inc());
-    // println!("{}", o.inc());
-    // println!("{}", o.inc2());
-    // println!("{}", o2.inc2());
+    let p_mu_o1: &'static Cro_O = unsafe { &*mu_o1.as_ptr() };
+    let p_mu_o2: &'static Cro_O2 = unsafe { &*mu_o2.as_ptr() };
 
-    // let mut v: Vec<Box<dyn Runnable>> = vec![];
-    // v.push(Box::new(o.add(1)));
-    // v.push(Box::new(o.add(2)));
-    // v.push(Box::new(o2.add(20)));
+    mu_o1.write(Cro_O::new(0, p_mu_o2));
+    mu_o2.write(Cro_O2::new(0, p_mu_o1));
 
-    // for m in v {
-    //     m.sync();
-    // }
+    let o1 = unsafe { mu_o1.assume_init() };
+    let o2 = unsafe { mu_o2.assume_init() };
 
-    println!("o {:?}", o);
+    println!("{}", o2.inc());
+
+    let m = o1.add(2);
+
+    println!("message created");
+    println!("o1 {:?}", o1);
+    println!("o2 {:?}", o2);
+
+    println!("sync call");
+    m.sync();
+    println!("sync return");
+
+    println!("o1 {:?}", o1);
+    println!("o2 {:?}", o2);
 }
