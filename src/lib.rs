@@ -12,8 +12,10 @@ impl<T> Resource<T> {
     }
 
     pub fn sync<R>(&self, f: &impl Fn(&mut T) -> R) -> R {
-        let mut o = self.t.lock().unwrap();
-        (f)(&mut o)
+        match self.t.try_lock() {
+            Ok(mut o) => (f)(&mut o),
+            _ => panic!("deadlock"),
+        }
     }
 }
 
